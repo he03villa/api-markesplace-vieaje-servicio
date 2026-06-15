@@ -1,0 +1,53 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: marketplace_viajes_servicio_nginx
+    restart: always
+    ports:
+      - 8003:80
+    volumes:
+      - ./nginx-main.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - .:/code:ro                      # ← AGREGAR
+      - ./storage:/code/storage:ro      # ← AGREGAR
+    depends_on:
+      - api-marketplace-viajes-servicio
+
+  api-marketplace-viajes-servicio:
+    build: .
+    container_name: api-marketplace-viajes-servicio
+    restart: always
+    extra_hosts:
+      - "${ICETEX_DOMAIN:-localhost}:host-gateway"
+    environment:
+      SERVER_NAME: ":9000"
+      CADDY_GLOBAL_OPTIONS: "auto_https off"   
+    volumes:
+      - .:/code
+      - ./.env:/code/.env:ro
+      - ./storage:/code/storage
+      - ./storage/supervisor-logs:/var/log/supervisor
+    expose:
+      - "9000"
+    ports:
+      - "8004:8004"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: marketplace_viajes_servicio_redis
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_data:
+    driver: local

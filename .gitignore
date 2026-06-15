@@ -21,4 +21,22 @@
 /vendor
 Homestead.json
 Homestead.yaml
+npm-debug.log
 Thumbs.db
+yarn-error.log
+docker exec -it api-siceap bash
+
+**/caddy
+frankenphp
+frankenphp-worker.php
+
+**/caddy
+frankenphp
+frankenphp-worker.php
+
+custom-php.ini
+docker-compose.yml
+Dockerfile
+nginx-main.conf
+nginx.conf
+supervisord.conf

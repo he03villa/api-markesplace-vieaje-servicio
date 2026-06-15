@@ -2,6 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Offer;
+use App\Models\RidePassenger;
+use App\Models\RideRequest;
+use App\Models\ServiceRequest;
+use App\Observers\OfferObserver;
+use App\Observers\RidePassengerObserver;
+use App\Observers\RideRequestObserver;
+use App\Observers\ServiceRequestObserver;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        ServiceRequest::observe(ServiceRequestObserver::class);
+        RideRequest::observe(RideRequestObserver::class);
+        Offer::observe(OfferObserver::class);
+        RidePassenger::observe(RidePassengerObserver::class);
+        Carbon::setLocale('es');
+        URL::forceRootUrl(config('app.url'));
     }
 }
