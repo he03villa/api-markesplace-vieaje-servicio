@@ -9,6 +9,7 @@ use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class OfferController extends Controller
 {
@@ -18,6 +19,30 @@ class OfferController extends Controller
         private OfferService $offerService
     ) {}
 
+    #[OA\Post(
+        path: '/api/offers',
+        tags: ['Servicios'],
+        summary: 'Crear una nueva oferta para una solicitud de servicio',
+        security: [['jwt' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/CreateOfferRequest')
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Oferta creada exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Ya has creado una oferta o no puedes ofertar tu propia solicitud',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al crear la oferta',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         try {
@@ -58,6 +83,29 @@ class OfferController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/offers/{id}/accept',
+        tags: ['Servicios'],
+        summary: 'Aceptar una oferta',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Oferta aceptada exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 403, description: 'No tienes permiso para aceptar esta oferta',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 404, description: 'Oferta no encontrada',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al aceptar la oferta',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function accept(Request $request, int $id): JsonResponse
     {
         try {
@@ -77,6 +125,20 @@ class OfferController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/offers/my-offers',
+        tags: ['Servicios'],
+        summary: 'Obtener ofertas del usuario autenticado',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Tus ofertas obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener tus ofertas',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function myOffers(Request $request): JsonResponse
     {
         try {

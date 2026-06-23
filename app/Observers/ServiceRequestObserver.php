@@ -20,6 +20,7 @@ class ServiceRequestObserver
     public function created(ServiceRequest $serviceRequest): void
     {
         $this->geolocationService->assignLocationToServiceRequest($serviceRequest);
+        $serviceRequest->refresh();
     }
 
     /**

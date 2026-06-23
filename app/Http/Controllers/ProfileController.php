@@ -9,6 +9,7 @@ use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class ProfileController extends Controller
 {
@@ -18,6 +19,23 @@ class ProfileController extends Controller
         private readonly ProfileService $profileService
     ) {}
 
+    #[OA\Get(
+        path: '/api/profile',
+        tags: ['Perfil'],
+        summary: 'Obtener perfil del usuario autenticado',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Perfil obtenido exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 404, description: 'Perfil no encontrado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener el perfil',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     /**
      * GET /api/profile
      */
@@ -37,6 +55,38 @@ class ProfileController extends Controller
         }
     }
 
+    #[OA\Put(
+        path: '/api/profile',
+        tags: ['Perfil'],
+        summary: 'Actualizar perfil del usuario autenticado',
+        security: [['jwt' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: 'name', type: 'string'),
+                        new OA\Property(property: 'phone', type: 'string'),
+                        new OA\Property(property: 'avatar', type: 'string', format: 'binary'),
+                        new OA\Property(property: 'bio', type: 'string'),
+                        new OA\Property(property: 'address', type: 'string'),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Perfil actualizado exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al actualizar el perfil',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     /**
      * PUT /api/profile
      */

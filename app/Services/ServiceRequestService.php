@@ -76,11 +76,10 @@ class ServiceRequestService
 
     public function deleteRequest(ServiceRequest $request): bool
     {
-        // Elimina las imágenes del storage
         if (!empty($request->images)) {
-            //$this->imageStorage->deleteMultiple($request->images);
+            \App\Utils\ImageUploader::deleteMultiple($request->images);
         }
-        
+
         return $request->delete();
     }
 

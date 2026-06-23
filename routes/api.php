@@ -59,6 +59,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/my-requests', [ServiceRequestController::class, 'myServiceRequests']);
         Route::get('/{id}', [ServiceRequestController::class, 'show']);
         Route::put('/{id}', [ServiceRequestController::class, 'update']);
+        Route::patch('/{id}/status', [ServiceRequestController::class, 'transitionStatus']);
     });
     
     // Ofertas

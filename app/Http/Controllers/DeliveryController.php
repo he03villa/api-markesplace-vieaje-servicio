@@ -9,6 +9,7 @@ use App\Services\ReviewService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class DeliveryController extends Controller
 {
@@ -19,6 +20,41 @@ class DeliveryController extends Controller
         private ReviewService $reviewService
     ) {}
 
+    #[OA\Post(
+        path: '/api/service-requests/{serviceRequest}/deliver',
+        tags: ['Entregas'],
+        summary: 'Worker: Entregar trabajo con evidencia',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'serviceRequest', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    required: ['completion_notes', 'evidence_images'],
+                    properties: [
+                        new OA\Property(property: 'completion_notes', type: 'string'),
+                        new OA\Property(property: 'actual_hours', type: 'number'),
+                        new OA\Property(property: 'evidence_images', type: 'array', items: new OA\Items(type: 'string', format: 'binary')),
+                        new OA\Property(property: 'evidence_docs', type: 'array', items: new OA\Items(type: 'string', format: 'binary')),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Trabajo entregado exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 403, description: 'No autorizado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+        ]
+    )]
     /**
      * Worker: Entregar trabajo con evidencia
      */
@@ -57,6 +93,32 @@ class DeliveryController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/service-requests/{serviceRequest}/delivery',
+        tags: ['Entregas'],
+        summary: 'Ver entrega de una solicitud',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'serviceRequest', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Entrega obtenida',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 401, description: 'No autorizado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 403, description: 'No tienes permiso para ver esta entrega',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 404, description: 'No hay entrega para esta solicitud',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener entrega',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     /**
      * Ver entrega de una solicitud
      */
@@ -77,6 +139,38 @@ class DeliveryController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/deliveries/{delivery}/respond',
+        tags: ['Entregas'],
+        summary: 'Cliente: Aprobar, rechazar o solicitar revision',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'delivery', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['action'],
+                properties: [
+                    new OA\Property(property: 'action', type: 'string', enum: ['approve', 'reject', 'revision']),
+                    new OA\Property(property: 'feedback', type: 'string'),
+                    new OA\Property(property: 'rating', type: 'integer'),
+                    new OA\Property(property: 'comment', type: 'string'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Respuesta procesada exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 403, description: 'No autorizado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+        ]
+    )]
     /**
      * Cliente: Aprobar, rechazar o solicitar revision
      */
@@ -136,6 +230,23 @@ class DeliveryController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/my-deliveries',
+        tags: ['Entregas'],
+        summary: 'Worker: Mis entregas',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\QueryParameter(name: 'status', required: false, schema: new OA\Schema(type: 'string')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Mis entregas obtenidas',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     /**
      * Worker: Mis entregas
      */
@@ -151,6 +262,20 @@ class DeliveryController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/pending-approvals',
+        tags: ['Entregas'],
+        summary: 'Cliente: Entregas pendientes de aprobacion',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Entregas pendientes',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     /**
      * Cliente: Entregas pendientes de aprobacion
      */

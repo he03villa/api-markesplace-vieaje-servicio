@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
+use OpenApi\Attributes as OA;
 
 class UserController extends Controller
 {
@@ -25,6 +26,18 @@ class UserController extends Controller
         private UserService $userService
     ) {}
 
+    #[OA\Get(
+        path: '/api/auth/me',
+        tags: ['Perfil'],
+        summary: 'Obtener usuario autenticado',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Datos del usuario autenticado',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function me()
     {
         $user = $this->userService->me();
@@ -33,16 +46,53 @@ class UserController extends Controller
         return $this->successResponse($user);
     }
 
+    #[OA\Post(
+        path: '/api/auth/logout',
+        tags: ['Auth'],
+        summary: 'Cerrar sesión',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Sesión cerrada exitosamente'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function logout()
     {
         return $this->successResponse($this->userService->logout());
     }
 
+    #[OA\Post(
+        path: '/api/auth/refresh',
+        tags: ['Auth'],
+        summary: 'Refrescar token JWT',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Token renovado',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 401, description: 'Token inválido o expirado'),
+        ]
+    )]
     public function refresh()
     {
         return $this->successResponse($this->userService->refresh());
     }
 
+    #[OA\Post(
+        path: '/api/auth/register',
+        tags: ['Auth'],
+        summary: 'Registrar nuevo usuario',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/RegisterRequest')
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Usuario registrado exitosamente'),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+        ]
+    )]
     public function register(Request $request)
     {
         try {
@@ -59,6 +109,20 @@ class UserController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/auth/login',
+        tags: ['Auth'],
+        summary: 'Iniciar sesión',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/LoginRequest')
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Login exitoso, devuelve token JWT'),
+            new OA\Response(response: 401, description: 'Credenciales inválidas'),
+            new OA\Response(response: 422, description: 'Error de validación'),
+        ]
+    )]
     public function login(Request $request)
     {
         try {
@@ -70,12 +134,30 @@ class UserController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return $this->validationErrorResponse($e->errors());
         } catch (AuthenticationException $e) {
-            return $this->notFoundResponse($e->getMessage());
+            return $this->unauthorizedResponse($e->getMessage());
         } catch (\Exception $e) {
             return $this->errorResponse('Error al crear la solicitud', 500);
         }
     }
 
+    #[OA\Post(
+        path: '/api/auth/change-password',
+        tags: ['Auth'],
+        summary: 'Cambiar contraseña',
+        security: [['jwt' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'current_password', type: 'string', format: 'password'),
+                new OA\Property(property: 'new_password', type: 'string', format: 'password'),
+                new OA\Property(property: 'new_password_confirmation', type: 'string', format: 'password'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Contraseña actualizada'),
+            new OA\Response(response: 422, description: 'Error de validación'),
+        ]
+    )]
     public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
 
@@ -95,6 +177,16 @@ class UserController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/email/verify/send',
+        tags: ['Auth'],
+        summary: 'Enviar correo de verificación',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Correo enviado'),
+            new OA\Response(response: 422, description: 'Error al enviar'),
+        ]
+    )]
     public function sendVerificationEmail(): JsonResponse
     {
         try {
@@ -110,20 +202,33 @@ class UserController extends Controller
 
     public function verifyEmail(Request $request, int $id): \Illuminate\Http\RedirectResponse
     {
-        // Laravel valida automáticamente la firma
         if (!$request->hasValidSignature()) {
             return redirect(env('APP_DEEP_LINK') . '?status=invalid');
         }
 
         try {
             $this->userService->verifyEmail($id);
-            // Deep link a la app — cuando configures Ionic será: tuapp://email-verified?status=success
             return redirect(env('APP_DEEP_LINK') . '?status=success');
         } catch (\InvalidArgumentException $e) {
             return redirect(env('APP_DEEP_LINK') . '?status=already_verified');
         }
     }
 
+    #[OA\Patch(
+        path: '/api/auth/update-has-notification',
+        tags: ['Auth'],
+        summary: 'Actualizar preferencia de notificaciones',
+        security: [['jwt' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'has_notification', type: 'boolean', example: true),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Preferencia actualizada'),
+        ]
+    )]
     public function updateHasNotification(UpdateHasNotificationRequest $request): JsonResponse
     {
         try {
@@ -137,6 +242,22 @@ class UserController extends Controller
         }
     }
 
+    #[OA\Delete(
+        path: '/api/auth/account',
+        tags: ['Auth'],
+        summary: 'Eliminar cuenta',
+        security: [['jwt' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'password', type: 'string', format: 'password'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Cuenta eliminada'),
+            new OA\Response(response: 422, description: 'Contraseña incorrecta'),
+        ]
+    )]
     public function deleteAccount(deleteAccountRequest $request): JsonResponse
     {
         try {
@@ -150,6 +271,21 @@ class UserController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/auth/forgot-password',
+        tags: ['Auth'],
+        summary: 'Solicitar código de recuperación',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'email', type: 'string', format: 'email'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Código enviado al correo'),
+            new OA\Response(response: 422, description: 'Email no encontrado'),
+        ]
+    )]
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         try {
@@ -162,6 +298,22 @@ class UserController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/auth/verify-otp',
+        tags: ['Auth'],
+        summary: 'Verificar código OTP',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'email', type: 'string', format: 'email'),
+                new OA\Property(property: 'code', type: 'string', example: '123456'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Código válido'),
+            new OA\Response(response: 422, description: 'Código inválido'),
+        ]
+    )]
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
     {
         try {
@@ -174,6 +326,24 @@ class UserController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/auth/reset-password',
+        tags: ['Auth'],
+        summary: 'Restablecer contraseña con OTP',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'email', type: 'string', format: 'email'),
+                new OA\Property(property: 'code', type: 'string', example: '123456'),
+                new OA\Property(property: 'password', type: 'string', format: 'password'),
+                new OA\Property(property: 'password_confirmation', type: 'string', format: 'password'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Contraseña actualizada'),
+            new OA\Response(response: 422, description: 'Error de validación'),
+        ]
+    )]
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
         try {

@@ -24,6 +24,7 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
+        'role',
         'rating',
         'completed_jobs',
         'email_verified_at',
@@ -228,6 +229,16 @@ class User extends Authenticatable implements JWTSubject
     {
         $avgRating = $this->reviews()->avg('rating');
         $this->update(['rating' => round($avgRating ?? 0, 2)]);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function hasVerifiedEmail(): bool
+    {
+        return $this->email_verified_at !== null;
     }
 
     // Scopes útiles

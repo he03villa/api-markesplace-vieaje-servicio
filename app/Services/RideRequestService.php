@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Events\PassengerJoined;
 use App\Events\PassengerStatusChanged;
 use App\Events\RideStatusChanged;
+use App\Exceptions\CannotJoinOwnRideException;
+use App\Exceptions\InsufficientSeatsException;
 use App\Models\Review;
 use App\Models\RideRequest;
 use App\Models\User;
@@ -80,7 +82,7 @@ class RideRequestService
     public function joinRide(RideRequest $ride, User $user, array $data): void
     {
         if ($ride->isDriver($user)) {
-            throw new \InvalidArgumentException('No puedes unirte a tu propio viaje');
+            throw new CannotJoinOwnRideException('No puedes unirte a tu propio viaje');
         }
 
         if ($ride->isPassenger($user)) {
@@ -94,7 +96,7 @@ class RideRequestService
         $seats = $data['seats'] ?? 1;
 
         if (!$ride->hasAvailableSeats($seats)) {
-            throw new \InvalidArgumentException('No hay suficientes asientos');
+            throw new InsufficientSeatsException('No hay suficientes asientos');
         }
 
         $ride->passengers()->attach($user->id, [

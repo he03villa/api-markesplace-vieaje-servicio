@@ -20,6 +20,7 @@ class RideRequestObserver
     public function created(RideRequest $rideRequest): void
     {
         $this->geolocationService->assignLocationToRideRequest($rideRequest);
+        $rideRequest->refresh();
     }
 
     /**

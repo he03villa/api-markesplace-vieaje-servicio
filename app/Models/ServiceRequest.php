@@ -12,6 +12,7 @@ class ServiceRequest extends Model
 
     protected $fillable = [
         'user_id',
+        'worker_id',
         'title',
         'description',
         'category',
@@ -21,13 +22,13 @@ class ServiceRequest extends Model
         'budget_min',
         'budget_max',
         'deadline',
-        'status', // open, in_progress, delivered, completed, disputed, cancelled, expired
+        'status',
         'images',
         'country_id',
         'state_id',
         'city_id',
-        'delivered_at', // NUEVO
-        'completed_at', // NUEVO
+        'delivered_at',
+        'completed_at',
     ];
 
     protected $casts = [
@@ -51,14 +52,7 @@ class ServiceRequest extends Model
 
     public function worker()
     {
-        return $this->hasOneThrough(
-            User::class,
-            Offer::class,
-            'service_request_id', // Foreign key en offers
-            'id',                 // Foreign key en users
-            'id',                 // Local key en service_requests
-            'user_id'             // Local key en offers
-        )->where('offers.status', 'accepted');
+        return $this->belongsTo(User::class, 'worker_id');
     }
 
     public function offers()
@@ -175,9 +169,8 @@ class ServiceRequest extends Model
         // Aceptar esta oferta
         $offer->update(['status' => 'accepted']);
 
-        // Asignar worker y cambiar estado
         $this->update([
-            //'worker_id' => $offer->user_id,
+            'worker_id' => $offer->user_id,
             'status' => 'in_progress',
         ]);
     }

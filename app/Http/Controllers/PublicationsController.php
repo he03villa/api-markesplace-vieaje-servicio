@@ -11,6 +11,7 @@ use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class PublicationsController extends Controller
 {
@@ -20,6 +21,26 @@ class PublicationsController extends Controller
         private PublicationService $publicationService
     ) {}
 
+    #[OA\Get(
+        path: '/api/my-publications',
+        tags: ['Perfil'],
+        summary: 'Obtener publicaciones del usuario autenticado',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\QueryParameter(name: 'category', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\QueryParameter(name: 'status', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\QueryParameter(name: 'search', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\QueryParameter(name: 'per_page', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Publicaciones obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener las publicaciones',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     /**
      * GET /api/my-publications
      */
@@ -45,6 +66,20 @@ class PublicationsController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/my-publications/stats',
+        tags: ['Perfil'],
+        summary: 'Obtener estadísticas de publicaciones',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Estadísticas obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener estadísticas',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     /**
      * GET /api/my-publications/stats
      */
@@ -94,6 +129,20 @@ class PublicationsController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/my-publications/summary',
+        tags: ['Perfil'],
+        summary: 'Obtener resumen de publicaciones',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Resumen obtenido exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener resumen',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function summary(Request $request): JsonResponse
     {
         try {
@@ -104,6 +153,29 @@ class PublicationsController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/my-publications/explore',
+        tags: ['Perfil'],
+        summary: 'Explorar publicaciones disponibles',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\QueryParameter(name: 'category', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\QueryParameter(name: 'search', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\QueryParameter(name: 'per_page', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\QueryParameter(name: 'page', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Publicaciones obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener publicaciones',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function explore(ExplorePublicationsRequest $request): JsonResponse
     {
         try {

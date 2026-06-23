@@ -15,6 +15,7 @@ use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class RideRequestController extends Controller
 {
@@ -25,6 +26,26 @@ class RideRequestController extends Controller
         private readonly PublicationService $publicationService
     ) {}
 
+    #[OA\Get(
+        path: '/api/rides',
+        tags: ['Viajes'],
+        summary: 'Obtener todos los viajes disponibles',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\Parameter(name: 'origin_lat', in: 'query', required: false, schema: new OA\Schema(type: 'number', format: 'float')),
+            new OA\Parameter(name: 'origin_lng', in: 'query', required: false, schema: new OA\Schema(type: 'number', format: 'float')),
+            new OA\Parameter(name: 'radius', in: 'query', required: false, schema: new OA\Schema(type: 'number', format: 'float')),
+            new OA\Parameter(name: 'date', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Viajes disponibles obtenidos exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener los viajes',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         try {
@@ -41,6 +62,27 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides',
+        tags: ['Viajes'],
+        summary: 'Crear un nuevo viaje',
+        security: [['jwt' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/CreateRideRequest')
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Viaje creado exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al crear el viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         try {
@@ -96,6 +138,26 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/rides/{id}',
+        tags: ['Viajes'],
+        summary: 'Obtener detalle de un viaje por ID',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Detalle del viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 404, description: 'Viaje no encontrado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener el viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function show(int $id): JsonResponse
     {
         try {
@@ -122,6 +184,36 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/join',
+        tags: ['Viajes'],
+        summary: 'Unirse a un viaje como pasajero',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/JoinRideRequest')
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Te has unido al viaje exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al unirse al viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 404, description: 'Viaje no encontrado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al unirse al viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function joinRide(Request $request, int $id): JsonResponse
     {
         try {
@@ -156,6 +248,20 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/rides/my-rides',
+        tags: ['Viajes'],
+        summary: 'Obtener viajes del usuario autenticado (legacy)',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Tus viajes obtenidos exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener tus viajes',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function myRides(Request $request): JsonResponse
     {
         try {
@@ -166,6 +272,24 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/passengers/{passengerId}/confirm',
+        tags: ['Viajes'],
+        summary: 'Confirmar un pasajero en el viaje',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\PathParameter(name: 'passengerId', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pasajero confirmado',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al confirmar pasajero',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function confirmPassenger(Request $request, int $id, int $passengerId): JsonResponse
     {
         try {
@@ -178,6 +302,23 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/start',
+        tags: ['Viajes'],
+        summary: 'Iniciar un viaje',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Viaje iniciado',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al iniciar el viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function start(Request $request, int $id): JsonResponse
     {
         try {
@@ -190,6 +331,24 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/pickup/{passengerId}',
+        tags: ['Viajes'],
+        summary: 'Marcar pasajero como recogido',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\PathParameter(name: 'passengerId', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pasajero recogido',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al recoger pasajero',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function pickupPassenger(Request $request, int $id, int $passengerId): JsonResponse
     {
         try {
@@ -202,6 +361,24 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/dropoff/{passengerId}',
+        tags: ['Viajes'],
+        summary: 'Marcar pasajero como dejado en destino',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\PathParameter(name: 'passengerId', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pasajero dejado en destino',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al dejar pasajero',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function dropoffPassenger(Request $request, int $id, int $passengerId): JsonResponse
     {
         try {
@@ -214,6 +391,23 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/complete',
+        tags: ['Viajes'],
+        summary: 'Completar un viaje',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Viaje completado',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al completar el viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function complete(Request $request, int $id): JsonResponse
     {
         try {
@@ -226,6 +420,29 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/cancel',
+        tags: ['Viajes'],
+        summary: 'Cancelar un viaje',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'reason', type: 'string', description: 'Motivo de cancelación'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Cancelado correctamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al cancelar el viaje',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function cancel(Request $request, int $id): JsonResponse
     {
         try {
@@ -240,6 +457,34 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/rides/{id}/rate',
+        tags: ['Viajes'],
+        summary: 'Calificar un viaje',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'target_user_id', type: 'integer', description: 'ID del usuario a calificar'),
+                new OA\Property(property: 'rating', type: 'integer', description: 'Calificación del 1 al 5'),
+                new OA\Property(property: 'comment', type: 'string', description: 'Comentario opcional'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Calificación guardada',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 400, description: 'Error al calificar',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function rate(Request $request, int $id): JsonResponse
     {
         try {
@@ -263,6 +508,20 @@ class RideRequestController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/rides/my-rides',
+        tags: ['Viajes'],
+        summary: 'Obtener viajes del usuario autenticado (publicaciones)',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Tus solicitudes obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener tus solicitudes',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function myRidesPublication(MyRidesRequest $request): JsonResponse
     {
         try {
@@ -287,6 +546,23 @@ class RideRequestController extends Controller
     }
 
 
+    #[OA\Get(
+        path: '/api/rides/stats',
+        tags: ['Viajes'],
+        summary: 'Obtener estadísticas del conductor',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Estadísticas obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener estadísticas',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function stats(DriverStatsRequest $request): JsonResponse
     {
         try {

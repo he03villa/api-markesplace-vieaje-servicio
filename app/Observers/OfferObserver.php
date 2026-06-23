@@ -13,9 +13,12 @@ class OfferObserver
 
     public function updated(Offer $offer): void
     {
-        // Solo sincronizar si cambió el status
         if ($offer->isDirty('status')) {
             $offer->serviceRequest->syncPublication();
+
+            if ($offer->status === 'accepted') {
+                $offer->serviceRequest->updateQuietly(['worker_id' => $offer->user_id]);
+            }
         }
     }
 

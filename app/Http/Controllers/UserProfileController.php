@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\UserProfileService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class UserProfileController extends Controller
@@ -100,6 +101,33 @@ class UserProfileController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/users/search',
+        tags: ['Perfil'],
+        summary: 'Buscar usuarios',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\QueryParameter(name: 'name', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\QueryParameter(name: 'email', required: false, schema: new OA\Schema(type: 'string', format: 'email')),
+            new OA\QueryParameter(name: 'phone', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\QueryParameter(name: 'min_rating', required: false, schema: new OA\Schema(type: 'number', minimum: 0, maximum: 5)),
+            new OA\QueryParameter(name: 'gender', required: false, schema: new OA\Schema(type: 'string', enum: ['male', 'female', 'other', 'prefer_not_to_say'])),
+            new OA\QueryParameter(name: 'order_by', required: false, schema: new OA\Schema(type: 'string', enum: ['name', 'rating', 'completed_jobs', 'created_at'])),
+            new OA\QueryParameter(name: 'order_direction', required: false, schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'])),
+            new OA\QueryParameter(name: 'per_page', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Usuarios encontrados exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error en la búsqueda',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function search(Request $request): JsonResponse
     {
         try {

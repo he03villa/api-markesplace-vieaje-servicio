@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Auth\AuthenticationException;
+use App\Exceptions\BusinessLogicException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -64,6 +65,13 @@ class Handler extends ExceptionHandler
                 'success' => false,
                 'message' => 'Acceso denegado',
             ], 403);
+        }
+
+        if ($exception instanceof BusinessLogicException) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ], 400);
         }
 
         if ($exception instanceof \Illuminate\Database\QueryException) {

@@ -7,6 +7,7 @@ use App\Models\State;
 use App\Models\City;
 use App\Models\RideRequest;
 use App\Models\ServiceRequest;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -18,52 +19,55 @@ class GeolocationService
      */
     public function findLocationByCoordinates(float $latitude, float $longitude): array
     {
-        try {
-            // Llamar a OpenStreetMap Nominatim (gratuito, requiere User-Agent)
-            $response = Http::withHeaders([
-                'User-Agent' => 'YourAppName/1.0 (your@email.com)' // Cambia esto
-            ])->get('https://nominatim.openstreetmap.org/reverse', [
-                'lat' => $latitude,
-                'lon' => $longitude,
-                'format' => 'json',
-                'addressdetails' => 1,
-            ]);
+        $cacheKey = "geo_{$latitude}_{$longitude}";
 
-            if (!$response->successful()) {
-                Log::error("Error en Nominatim: " . $response->body());
+        return Cache::remember($cacheKey, 86400, function () use ($latitude, $longitude) {
+            try {
+                // Rate limiting: 1 request per second (Nominatim policy)
+                sleep(1);
+
+                $response = Http::withHeaders([
+                    'User-Agent' => 'MarketplaceViajeServicio/1.0 (contacto@hectorvilla.dev)'
+                ])->get('https://nominatim.openstreetmap.org/reverse', [
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'format' => 'json',
+                    'addressdetails' => 1,
+                ]);
+
+                if (!$response->successful()) {
+                    Log::error("Error en Nominatim: " . $response->body());
+                    return $this->fallbackToDistanceCalculation($latitude, $longitude);
+                }
+
+                $data = $response->json();
+
+                if (!isset($data['address'])) {
+                    return $this->fallbackToDistanceCalculation($latitude, $longitude);
+                }
+
+                $address = $data['address'];
+
+                $countryName = $address['country'] ?? null;
+                $stateName = $address['state']
+                    ?? $address['region']
+                    ?? $address['county']
+                    ?? null;
+                $cityName = $address['county']
+                    ?? $address['city']
+                    ?? $address['town']
+                    ?? $address['village']
+                    ?? $address['municipality']
+                    ?? null;
+
+                Log::info("Nominatim encontró: {$countryName}, {$stateName}, {$cityName}");
+
+                return $this->findInLocalDatabase($countryName, $stateName, $cityName);
+            } catch (\Exception $e) {
+                Log::error("Error en geocodificación: " . $e->getMessage());
                 return $this->fallbackToDistanceCalculation($latitude, $longitude);
             }
-
-            $data = $response->json();
-            
-            if (!isset($data['address'])) {
-                return $this->fallbackToDistanceCalculation($latitude, $longitude);
-            }
-
-            $address = $data['address'];
-            
-            // Extraer información del address
-            $countryName = $address['country'] ?? null;
-            $stateName = $address['state'] 
-                ?? $address['region'] 
-                ?? $address['county'] 
-                ?? null;
-            $cityName = $address['county']
-                ?? $address['city'] 
-                ?? $address['town'] 
-                ?? $address['village'] 
-                ?? $address['municipality'] 
-                ?? null;
-
-            Log::info("Nominatim encontró: {$countryName}, {$stateName}, {$cityName}");
-
-            // Buscar en nuestra base de datos local
-            return $this->findInLocalDatabase($countryName, $stateName, $cityName);
-
-        } catch (\Exception $e) {
-            Log::error("Error en geocodificación: " . $e->getMessage());
-            return $this->fallbackToDistanceCalculation($latitude, $longitude);
-        }
+        });
     }
 
     /**
@@ -137,6 +141,9 @@ class GeolocationService
                 'country_id' => null,
                 'state_id' => null,
                 'city_id' => null,
+                'country_name' => null,
+                'state_name' => null,
+                'city_name' => null,
             ];
         }
 
@@ -153,6 +160,9 @@ class GeolocationService
             'country_id' => $country?->id,
             'state_id' => $state?->id,
             'city_id' => $city?->id,
+            'country_name' => $country?->name,
+            'state_name' => $state?->name,
+            'city_name' => $city?->name,
         ];
     }
 
@@ -176,7 +186,7 @@ class GeolocationService
             $serviceRequest->longitude
         );
 
-        Log::info("Asignando ubicación: País={$location['country_name']} ({$location['country_id']}), Estado={$location['state_name']} ({$location['state_id']}), Ciudad={$location['city_name']} ({$location['city_id']})");
+        Log::info("Asignando ubicación: País={$location['country_name']} ({$location['country_id']}), Estado={$location['state_name']} ({$location['state_id']}), Ciudad={$location['city_name']} ({$location['city_id']})", ['service_request_id' => $serviceRequest->id]);
 
         // USAR updateQuietly() para no disparar el Observer
         $serviceRequest->updateQuietly([
@@ -243,71 +253,83 @@ class GeolocationService
 
     private function findNearestCountry(float $latitude, float $longitude): ?Country
     {
-        return Country::active()
-            ->get()
-            ->map(function ($country) use ($latitude, $longitude) {
-                $country->distance = $this->calculateDistance(
-                    $latitude,
-                    $longitude,
-                    $country->latitude,
-                    $country->longitude
-                );
-                return $country;
-            })
-            ->sortBy('distance')
-            ->first();
+        $cacheKey = "nearest_country_{$latitude}_{$longitude}";
+        return Cache::remember($cacheKey, 604800, function () use ($latitude, $longitude) {
+            return Country::active()
+                ->get()
+                ->map(function ($country) use ($latitude, $longitude) {
+                    $country->distance = $this->calculateDistance(
+                        $latitude,
+                        $longitude,
+                        $country->latitude,
+                        $country->longitude
+                    );
+                    return $country;
+                })
+                ->sortBy('distance')
+                ->first();
+        });
     }
 
     private function findNearestState(float $latitude, float $longitude, int $countryId): ?State
     {
-        return State::where('country_id', $countryId)
-            ->get()
-            ->map(function ($state) use ($latitude, $longitude) {
-                $state->distance = $this->calculateDistance(
-                    $latitude,
-                    $longitude,
-                    $state->latitude,
-                    $state->longitude
-                );
-                return $state;
-            })
-            ->sortBy('distance')
-            ->first();
+        $cacheKey = "nearest_state_{$latitude}_{$longitude}_{$countryId}";
+        return Cache::remember($cacheKey, 604800, function () use ($latitude, $longitude, $countryId) {
+            return State::where('country_id', $countryId)
+                ->get()
+                ->map(function ($state) use ($latitude, $longitude) {
+                    $state->distance = $this->calculateDistance(
+                        $latitude,
+                        $longitude,
+                        $state->latitude,
+                        $state->longitude
+                    );
+                    return $state;
+                })
+                ->sortBy('distance')
+                ->first();
+        });
     }
 
     private function findNearestCity(float $latitude, float $longitude, int $stateId): ?City
     {
-        return City::where('state_id', $stateId)
-            ->get()
-            ->map(function ($city) use ($latitude, $longitude) {
-                $city->distance = $this->calculateDistance(
-                    $latitude,
-                    $longitude,
-                    $city->latitude,
-                    $city->longitude
-                );
-                return $city;
-            })
-            ->sortBy('distance')
-            ->first();
+        $cacheKey = "nearest_city_{$latitude}_{$longitude}_{$stateId}";
+        return Cache::remember($cacheKey, 604800, function () use ($latitude, $longitude, $stateId) {
+            return City::where('state_id', $stateId)
+                ->get()
+                ->map(function ($city) use ($latitude, $longitude) {
+                    $city->distance = $this->calculateDistance(
+                        $latitude,
+                        $longitude,
+                        $city->latitude,
+                        $city->longitude
+                    );
+                    return $city;
+                })
+                ->sortBy('distance')
+                ->first();
+        });
     }
 
     private function findNearestCityInCountry(float $latitude, float $longitude, int $countryId): ?City
     {
-        return City::whereHas('state', function ($query) use ($countryId) {
-                $query->where('country_id', $countryId);
-            })
-            ->get()
-            ->map(function ($city) use ($latitude, $longitude) {
-                $city->distance = $this->calculateDistance(
-                    $latitude,
-                    $longitude,
-                    $city->latitude,
-                    $city->longitude
-                );
-                return $city;
-            })
-            ->sortBy('distance')
-            ->first();
+        $cacheKey = "nearest_city_country_{$latitude}_{$longitude}_{$countryId}";
+        return Cache::remember($cacheKey, 604800, function () use ($latitude, $longitude, $countryId) {
+            return City::whereHas('state', function ($query) use ($countryId) {
+                    $query->where('country_id', $countryId);
+                })
+                ->get()
+                ->map(function ($city) use ($latitude, $longitude) {
+                    $city->distance = $this->calculateDistance(
+                        $latitude,
+                        $longitude,
+                        $city->latitude,
+                        $city->longitude
+                    );
+                    return $city;
+                })
+                ->sortBy('distance')
+                ->first();
+        });
     }
 }

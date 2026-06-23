@@ -8,6 +8,7 @@ use App\Services\ServiceRequestService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class ServiceRequestController extends Controller
 {
@@ -18,6 +19,26 @@ class ServiceRequestController extends Controller
         private readonly PublicationService $publicationService
     ) {}
 
+    #[OA\Get(
+        path: '/api/service-requests',
+        tags: ['Servicios'],
+        summary: 'Obtener todas las solicitudes de servicio disponibles',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\Parameter(name: 'category', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'lat', in: 'query', required: false, schema: new OA\Schema(type: 'number', format: 'float')),
+            new OA\Parameter(name: 'lng', in: 'query', required: false, schema: new OA\Schema(type: 'number', format: 'float')),
+            new OA\Parameter(name: 'radius', in: 'query', required: false, schema: new OA\Schema(type: 'number', format: 'float')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Solicitudes obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener las solicitudes',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         try {
@@ -30,6 +51,27 @@ class ServiceRequestController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/api/service-requests',
+        tags: ['Servicios'],
+        summary: 'Crear una nueva solicitud de servicio',
+        security: [['jwt' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/CreateServiceRequest')
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Solicitud creada exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al crear la solicitud',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         try {
@@ -63,6 +105,26 @@ class ServiceRequestController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/service-requests/{id}',
+        tags: ['Servicios'],
+        summary: 'Obtener una solicitud de servicio por ID',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Solicitud encontrada',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 404, description: 'Solicitud no encontrada',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener la solicitud',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function show(int $id): JsonResponse
     {
         try {
@@ -75,6 +137,39 @@ class ServiceRequestController extends Controller
         }
     }
 
+    #[OA\Put(
+        path: '/api/service-requests/{id}',
+        tags: ['Servicios'],
+        summary: 'Actualizar una solicitud de servicio',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'title', type: 'string', maxLength: 255),
+                new OA\Property(property: 'description', type: 'string'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Solicitud actualizada exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 403, description: 'No tienes permiso para editar esta solicitud',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 404, description: 'Solicitud no encontrada',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al actualizar la solicitud',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function update(Request $request, int $id): JsonResponse
     {
         try {
@@ -87,7 +182,6 @@ class ServiceRequestController extends Controller
             $validated = $request->validate([
                 'title' => 'sometimes|string|max:255',
                 'description' => 'sometimes|string',
-                'status' => 'sometimes|in:open,in_progress,completed,cancelled',
             ]);
 
             $updated = $this->serviceRequestService->updateRequest($serviceRequest, $validated);
@@ -102,6 +196,59 @@ class ServiceRequestController extends Controller
         }
     }
 
+    #[OA\Patch(
+        path: '/api/service-requests/{id}/status',
+        tags: ['Servicios'],
+        summary: 'Transicionar el estado de una solicitud de servicio',
+        security: [['jwt' => []]],
+        parameters: [
+            new OA\PathParameter(name: 'id', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'status', type: 'string', description: 'Nuevo estado'),
+            ])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Estado actualizado exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 400, description: 'Transición no válida',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 404, description: 'Solicitud no encontrada',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al actualizar el estado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
+    public function transitionStatus(Request $request, int $id): JsonResponse
+    {
+        try {
+            $serviceRequest = $this->serviceRequestService->findRequest($id);
+
+            $validated = $request->validate([
+                'status' => 'required|string',
+            ]);
+
+            $serviceRequest->transitionTo($validated['status'], $request->user());
+
+            return $this->successResponse(
+                $serviceRequest->fresh(),
+                'Estado actualizado exitosamente'
+            );
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Solicitud no encontrada');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return $this->errorResponse('Error al actualizar el estado', 500);
+        }
+    }
+
     public function myRequests(Request $request): JsonResponse
     {
         try {
@@ -112,6 +259,20 @@ class ServiceRequestController extends Controller
         }
     }
 
+    #[OA\Get(
+        path: '/api/service-requests/my-requests',
+        tags: ['Servicios'],
+        summary: 'Obtener los servicios del usuario autenticado (publicaciones)',
+        security: [['jwt' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Tus solicitudes obtenidas exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 500, description: 'Error al obtener tus solicitudes',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+        ]
+    )]
     public function myServiceRequests(MyServicesRequest $request): JsonResponse
     {
         try {
