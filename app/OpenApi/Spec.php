@@ -10,7 +10,7 @@ use OpenApi\Attributes as OA;
     description: 'API de marketplace para servicios y viajes compartidos'
 )]
 #[OA\Server(
-    url: 'http://localhost:8003',
+    url: SWAGGER_SERVER_HOST,
     description: 'API server'
 )]
 #[OA\SecurityScheme(

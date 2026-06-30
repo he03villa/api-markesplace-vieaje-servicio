@@ -38,6 +38,10 @@ class AppServiceProvider extends ServiceProvider
         Carbon::setLocale('es');
         URL::forceRootUrl(config('app.url'));
 
+        if (!defined('SWAGGER_SERVER_HOST')) {
+            define('SWAGGER_SERVER_HOST', config('app.url'));
+        }
+
         Gate::define('search_users', function (User $user) {
             return $user->isAdmin() || $user->hasVerifiedEmail();
         });
