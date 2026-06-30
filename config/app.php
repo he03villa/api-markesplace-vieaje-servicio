@@ -123,4 +123,13 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Firebase Cloud Messaging
+    |--------------------------------------------------------------------------
+    */
+
+    'firebase_credentials' => env('FIREBASE_CREDENTIALS', 'app/firebase/service-account.json'),
+    'firebase_project_id' => env('FIREBASE_PROJECT_ID'),
+
 ];

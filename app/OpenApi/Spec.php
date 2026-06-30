@@ -27,6 +27,7 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Viajes', description: 'Viajes compartidos y pasajeros')]
 #[OA\Tag(name: 'Chat', description: 'Mensajería en tiempo real')]
 #[OA\Tag(name: 'Reseñas', description: 'Reseñas y valoraciones')]
+#[OA\Tag(name: 'Notificaciones', description: 'Tokens de dispositivo y notificaciones push')]
 class Spec
 {
 }

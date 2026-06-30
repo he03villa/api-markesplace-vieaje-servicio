@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\FCMController;
 use App\Http\Controllers\MyAssignmentsController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\ProfileController;
@@ -79,6 +80,18 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/my-assignments/services', [MyAssignmentsController::class, 'services']);
     Route::get('/my-assignments/rides/driver', [MyAssignmentsController::class, 'ridesAsDriver']);
     Route::get('/my-assignments/rides/passenger', [MyAssignmentsController::class, 'ridesAsPassenger']);
+
+    // FCM Device Tokens
+    Route::prefix('auth/device-token')->group(function () {
+        Route::post('/', [FCMController::class, 'register']);
+        Route::delete('/', [FCMController::class, 'unregister']);
+        Route::get('/', [FCMController::class, 'listTokens']);
+        Route::post('/subscribe', [FCMController::class, 'subscribeToTopic']);
+        Route::post('/unsubscribe', [FCMController::class, 'unsubscribeFromTopic']);
+    });
+
+    // FCM Test Notification
+    Route::post('/auth/notifications/test/{user}', [FCMController::class, 'testNotification']);
 });
 
 require __DIR__ . '/api_deliveries.php';
