@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestDelivery;
+use App\Models\UserAbout;
 use Illuminate\Console\Command;
 
 class NormalizeImagePaths extends Command
@@ -19,6 +20,7 @@ class NormalizeImagePaths extends Command
             'service_requests' => $this->normalizeServiceRequests(),
             'service_request_deliveries_images' => $this->normalizeDeliveryImages(),
             'service_request_deliveries_docs' => $this->normalizeDeliveryDocs(),
+            'user_abouts_avatar' => $this->normalizeUserAvatars(),
         ];
 
         $this->newLine();
@@ -28,6 +30,27 @@ class NormalizeImagePaths extends Command
         );
 
         return Command::SUCCESS;
+    }
+
+    private function normalizeUserAvatars(): int
+    {
+        $count = 0;
+        UserAbout::whereNotNull('avatar')->chunk(100, function ($users) use (&$count) {
+            foreach ($users as $user) {
+                $avatar = $user->avatar;
+                if (!is_string($avatar)) {
+                    continue;
+                }
+
+                $normalized = $this->extractRelativePath($avatar);
+
+                if ($normalized !== $avatar) {
+                    UserAbout::withoutTimestamps(fn() => $user->updateQuietly(['avatar' => $normalized]));
+                    $count++;
+                }
+            }
+        });
+        return $count;
     }
 
     private function extractRelativePath(string $url): string
