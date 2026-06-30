@@ -59,14 +59,17 @@ class ServiceRequestDelivery extends Model
 
     public function getEvidenceImageUrlsAttribute(): array
     {
-        return array_map(fn($img) => Storage::disk('public')->url($img), $this->evidence_images ?? []);
+        return array_map(fn($img) =>
+            filter_var($img, FILTER_VALIDATE_URL) ? $img : Storage::disk('public')->url($img),
+            $this->evidence_images ?? []
+        );
     }
 
     public function getEvidenceDocUrlsAttribute(): array
     {
         return array_map(fn($doc) => [
             'name' => $doc['name'] ?? basename($doc['path']),
-            'url'  => Storage::disk('public')->url($doc['path']),
+            'url'  => filter_var($doc['path'], FILTER_VALIDATE_URL) ? $doc['path'] : Storage::disk('public')->url($doc['path']),
             'mime' => $doc['mime'] ?? null,
         ], $this->evidence_docs ?? []);
     }
@@ -115,11 +118,15 @@ class ServiceRequestDelivery extends Model
     public function deleteFiles(): void
     {
         foreach ($this->evidence_images ?? [] as $img) {
-            if (Storage::disk('public')->exists($img)) Storage::disk('public')->delete($img);
+            $path = filter_var($img, FILTER_VALIDATE_URL) ? \App\Utils\ImageUploader::urlToPath($img, 'public') : $img;
+            if (Storage::disk('public')->exists($path)) Storage::disk('public')->delete($path);
         }
         foreach ($this->evidence_docs ?? [] as $doc) {
             $path = is_array($doc) ? ($doc['path'] ?? null) : $doc;
-            if ($path && Storage::disk('public')->exists($path)) Storage::disk('public')->delete($path);
+            if ($path) {
+                $relative = filter_var($path, FILTER_VALIDATE_URL) ? \App\Utils\ImageUploader::urlToPath($path, 'public') : $path;
+                if (Storage::disk('public')->exists($relative)) Storage::disk('public')->delete($relative);
+            }
         }
     }
 

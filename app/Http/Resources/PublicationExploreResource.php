@@ -63,7 +63,7 @@ class PublicationExploreResource extends JsonResource
             'deadline'     => $s->deadline?->toISOString(),
             'address'      => $s->address,
             'location'     => $this->ui_metadata['location'] ?? null,
-            'images'       => $s->images ?? [],
+            'images'       => $s->image_urls ?? [],
             'latitude'     => $s->latitude,
             'longitude'    => $s->longitude,
         ];

@@ -45,7 +45,7 @@ class MyServiceResource extends JsonResource
 
             // ── Imágenes ─────────────────────────────────────────────────────
             'image'           => $this->firstImage($sr),
-            'has_images'      => $meta['has_images'] ?? !empty($sr?->images),
+            'has_images'      => $meta['has_images'] ?? !empty($sr?->image_urls),
 
             // ── Métricas (las que muestra la tarjeta) ─────────────────────────
             'views'           => $pub->views_count,
@@ -66,18 +66,16 @@ class MyServiceResource extends JsonResource
 
     private function firstImage(?\App\Models\ServiceRequest $sr): ?string
     {
-        if (!$sr || empty($sr->images)) {
+        if (!$sr || empty($sr->image_urls)) {
             return null;
         }
 
-        $first = is_array($sr->images) ? $sr->images[0] : null;
+        $first = is_array($sr->image_urls) ? $sr->image_urls[0] : null;
 
         if (!$first) {
             return null;
         }
 
-        // Si el uploader guarda un array con 'url', devolvemos eso;
-        // si guarda directamente el path, lo usamos directo.
         return is_array($first) ? ($first['url'] ?? null) : $first;
     }
 }

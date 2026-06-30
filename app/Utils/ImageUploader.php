@@ -28,7 +28,7 @@ class ImageUploader
         
         $fullPath = $image->storeAs($path, $filename, $disk);
         
-        return Storage::disk($disk)->url($fullPath);
+        return $fullPath;
     }
 
     /**
@@ -66,12 +66,12 @@ class ImageUploader
      */
     public static function delete(string $url, string $disk = 'public'): bool
     {
-        $path = self::urlToPath($url, $disk);
-        
+        $path = filter_var($url, FILTER_VALIDATE_URL) ? self::urlToPath($url, $disk) : $url;
+
         if (Storage::disk($disk)->exists($path)) {
             return Storage::disk($disk)->delete($path);
         }
-        
+
         return false;
     }
 

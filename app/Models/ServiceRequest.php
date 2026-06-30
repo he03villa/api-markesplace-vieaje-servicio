@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\HasPublication;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceRequest extends Model
 {
@@ -42,7 +43,7 @@ class ServiceRequest extends Model
         'completed_at' => 'datetime', // NUEVO
     ];
 
-    protected $appends = ['full_location', 'country_flag', 'country_code', 'first_review'];
+    protected $appends = ['full_location', 'country_flag', 'country_code', 'first_review', 'image_urls'];
 
     // RELACIONES
     public function user()
@@ -264,6 +265,14 @@ class ServiceRequest extends Model
     public function getFirstReviewAttribute(): ?Review
     {
         return $this->reviews()->first();
+    }
+
+    public function getImageUrlsAttribute(): array
+    {
+        return array_map(fn($img) =>
+            filter_var($img, FILTER_VALIDATE_URL) ? $img : Storage::disk('public')->url($img),
+            $this->images ?? []
+        );
     }
 
     protected function getOffersCount(): int

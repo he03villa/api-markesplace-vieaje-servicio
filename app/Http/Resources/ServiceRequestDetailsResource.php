@@ -30,7 +30,7 @@ class ServiceRequestDetailsResource extends JsonResource
             ],
             'deadline' => $this->deadline,
             'deadline_human' => $this->deadline?->locale('es')?->diffForHumans(),
-            'images' => $this->images ?? [],
+            'images' => $this->image_urls ?? [],
             'country' => [
                 'name' => $this->country?->name,
                 'code' => $this->country_code,
