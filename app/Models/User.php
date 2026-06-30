@@ -143,7 +143,7 @@ class User extends Authenticatable implements JWTSubject
             return 'https://ui-avatars.com/api/?name=' . urlencode($firstName) .
                 '&color=FFFFFF&background=09090b&rounded=true&size=50';
         }
-        return $this->about?->avatar;
+        return $this->about?->avatar_url;
     }
 
     public function getBioAttribute(): ?string
