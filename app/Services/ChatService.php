@@ -7,6 +7,8 @@ use App\Events\MessageSent;
 use App\Events\UserTyping;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\User;
+use App\Notifications\PushNotification;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -112,6 +114,20 @@ class ChatService
             $message->load(['sender:id,name', 'attachments']);
 
             MessageSent::dispatch($message, $conversation);
+
+            $receiver = User::find($receiverId);
+            if ($receiver && $senderId !== $receiverId) {
+                $sender = User::find($senderId);
+                $preview = mb_substr(strip_tags($body ?? ''), 0, 100);
+                $attachmentText = !empty($files) ? ' 📎' : '';
+                $receiver->notify(new PushNotification(
+                    type: 'new_message',
+                    title: $sender?->name ?? 'Nuevo mensaje',
+                    body: $preview ? "{$preview}{$attachmentText}" : 'Te envió un archivo' . $attachmentText,
+                    data: ['conversation_id' => $conversation->id, 'sender_id' => $senderId],
+                    actionUrl: "/chat/{$conversation->id}",
+                ));
+            }
 
             return ['message' => $message, 'conversation' => $conversation];
         });

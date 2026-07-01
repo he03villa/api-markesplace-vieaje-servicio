@@ -7,6 +7,7 @@ use App\Events\PassengerStatusChanged;
 use App\Events\RideStatusChanged;
 use App\Exceptions\CannotJoinOwnRideException;
 use App\Exceptions\InsufficientSeatsException;
+use App\Notifications\PushNotification;
 use App\Models\Review;
 use App\Models\RideRequest;
 use App\Models\User;
@@ -111,6 +112,18 @@ class RideRequestService
         $ride->increment('passenger_requests_count');
 
         broadcast(new PassengerJoined($ride, $user))->toOthers();
+
+        if ($ride->driver) {
+            $seats = $data['seats'] ?? 1;
+            $seatText = $seats > 1 ? "{$seats} asientos" : '1 asiento';
+            $ride->driver->notify(new PushNotification(
+                type: 'passenger_joined',
+                title: 'Nuevo pasajero',
+                body: "{$user->name} solicitó unirse a \"{$ride->origin_address} → {$ride->destination_address}\" ({$seatText})",
+                data: ['ride_id' => $ride->id, 'passenger_id' => $user->id],
+                actionUrl: "/viajes/{$ride->id}",
+            ));
+        }
     }
 
     public function confirmPassenger(RideRequest $ride, int $passengerId, User $driver): void
@@ -133,6 +146,17 @@ class RideRequestService
         }
 
         broadcast(new PassengerStatusChanged($ride, $passengerId, 'confirmed'));
+
+        $passenger = User::find($passengerId);
+        if ($passenger) {
+            $passenger->notify(new PushNotification(
+                type: 'passenger_confirmed',
+                title: 'Reserva confirmada',
+                body: "{$driver->name} confirmó tu lugar en \"{$ride->origin_address} → {$ride->destination_address}\"",
+                data: ['ride_id' => $ride->id],
+                actionUrl: "/viajes/{$ride->id}",
+            ));
+        }
     }
 
     public function startRide(RideRequest $ride, User $driver): void
@@ -150,6 +174,16 @@ class RideRequestService
             'started_at' => now(),
         ]);
         broadcast(new RideStatusChanged($ride, 'in_progress'));
+
+        foreach ($ride->passengers()->wherePivot('status', 'confirmed')->get() as $passenger) {
+            $passenger->notify(new PushNotification(
+                type: 'ride_started',
+                title: 'Viaje iniciado',
+                body: "{$driver->name} inició el viaje a \"{$ride->destination_address}\"",
+                data: ['ride_id' => $ride->id],
+                actionUrl: "/viajes/{$ride->id}",
+            ));
+        }
     }
 
     public function markPickedUp(RideRequest $ride, int $passengerId, User $driver): void
@@ -163,6 +197,17 @@ class RideRequestService
             'picked_up_at' => now(),
         ]);
         broadcast(new PassengerStatusChanged($ride, $passengerId, 'picked_up'));
+
+        $passenger = User::find($passengerId);
+        if ($passenger) {
+            $passenger->notify(new PushNotification(
+                type: 'passenger_picked_up',
+                title: 'Recogido',
+                body: "{$driver->name} te ha recogido para el viaje a \"{$ride->destination_address}\"",
+                data: ['ride_id' => $ride->id],
+                actionUrl: "/viajes/{$ride->id}",
+            ));
+        }
     }
 
     public function markDroppedOff(RideRequest $ride, int $passengerId, User $driver): void
@@ -176,6 +221,17 @@ class RideRequestService
             'dropped_off_at' => now(),
         ]);
         broadcast(new PassengerStatusChanged($ride, $passengerId, 'dropped_off'));
+
+        $passenger = User::find($passengerId);
+        if ($passenger) {
+            $passenger->notify(new PushNotification(
+                type: 'passenger_dropped_off',
+                title: 'Llegaste a tu destino',
+                body: "{$driver->name} te dejó en \"{$ride->destination_address}\". ¡Califica el viaje!",
+                data: ['ride_id' => $ride->id],
+                actionUrl: "/viajes/{$ride->id}/calificar",
+            ));
+        }
     }
 
     public function completeRide(RideRequest $ride, User $driver): void
@@ -201,6 +257,16 @@ class RideRequestService
             'completed_at' => now(),
         ]);
         broadcast(new RideStatusChanged($ride, 'completed'));
+
+        foreach ($ride->passengers as $passenger) {
+            $passenger->notify(new PushNotification(
+                type: 'ride_completed',
+                title: 'Viaje completado',
+                body: "El viaje a \"{$ride->destination_address}\" ha finalizado. ¡Califica a tu conductor!",
+                data: ['ride_id' => $ride->id],
+                actionUrl: "/viajes/{$ride->id}/calificar",
+            ));
+        }
     }
 
     public function cancelRide(RideRequest $ride, User $user, ?string $reason = null): void
@@ -232,6 +298,18 @@ class RideRequestService
 
             broadcast(new RideStatusChanged($ride, 'cancelled', $reason));
 
+            foreach ($ride->passengers as $passenger) {
+                if (in_array($passenger->pivot->status, ['pending', 'confirmed', 'picked_up'])) {
+                    $passenger->notify(new PushNotification(
+                        type: 'ride_cancelled',
+                        title: 'Viaje cancelado',
+                        body: "{$user->name} canceló el viaje a \"{$ride->destination_address}\"",
+                        data: ['ride_id' => $ride->id],
+                        actionUrl: "/viajes/{$ride->id}",
+                    ));
+                }
+            }
+
             return;
         }
 
@@ -259,6 +337,16 @@ class RideRequestService
             }
         }
         broadcast(new PassengerStatusChanged($ride, $user->id, 'cancelled', $reason));
+
+        if ($ride->driver) {
+            $ride->driver->notify(new PushNotification(
+                type: 'passenger_cancelled',
+                title: 'Pasajero canceló',
+                body: "{$user->name} canceló su reserva para \"{$ride->origin_address} → {$ride->destination_address}\"",
+                data: ['ride_id' => $ride->id],
+                actionUrl: "/viajes/{$ride->id}",
+            ));
+        }
     }
 
     public function rateRide(RideRequest $ride, User $user, array $data): void
@@ -305,6 +393,17 @@ class RideRequestService
 
         // Actualizar rating del calificado
         User::find($targetId)->updateRating();
+
+        $target = User::find($targetId);
+        if ($target) {
+            $target->notify(new PushNotification(
+                type: 'new_review',
+                title: 'Nueva calificación',
+                body: "{$user->name} te calificó con {$data['rating']} estrellas en el viaje a \"{$ride->destination_address}\"",
+                data: ['ride_id' => $ride->id, 'rating' => $data['rating']],
+                actionUrl: "/viajes/{$ride->id}",
+            ));
+        }
     }
 
     public function getUserRides(User $user): array

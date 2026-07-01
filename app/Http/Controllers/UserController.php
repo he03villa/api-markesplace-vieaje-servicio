@@ -8,6 +8,7 @@ use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\UpdateHasNotificationRequest;
 use App\Http\Requests\VerifyOtpRequest;
+use App\Notifications\PushNotification;
 use App\Services\UserService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Auth\AuthenticationException;
@@ -162,11 +163,22 @@ class UserController extends Controller
     {
 
         try {
+            $userId = auth('api')->id();
             $this->userService->changePassword(
-                auth('api')->id(),
+                $userId,
                 $request->current_password,
                 $request->new_password
             );
+
+            $user = \App\Models\User::find($userId);
+            if ($user) {
+                $user->notify(new PushNotification(
+                    type: 'password_changed',
+                    title: 'Contraseña actualizada',
+                    body: 'Tu contraseña fue cambiada exitosamente. Si no realizaste este cambio, contacta al soporte.',
+                    data: [],
+                ));
+            }
 
             return $this->successResponse(null, 'Contraseña actualizada exitosamente');
         } catch (\InvalidArgumentException $e) {
@@ -208,6 +220,17 @@ class UserController extends Controller
 
         try {
             $this->userService->verifyEmail($id);
+
+            $user = \App\Models\User::find($id);
+            if ($user) {
+                $user->notify(new PushNotification(
+                    type: 'email_verified',
+                    title: 'Correo verificado',
+                    body: 'Tu correo electrónico fue verificado exitosamente.',
+                    data: [],
+                ));
+            }
+
             return redirect(env('APP_DEEP_LINK') . '?status=success');
         } catch (\InvalidArgumentException $e) {
             return redirect(env('APP_DEEP_LINK') . '?status=already_verified');

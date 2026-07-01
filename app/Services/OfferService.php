@@ -7,6 +7,7 @@ use App\Models\Offer;
 use App\Models\ServiceRequest;
 use App\Models\User;
 use App\Exceptions\ServiceRequestClosedException;
+use App\Notifications\PushNotification;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -30,6 +31,16 @@ class OfferService
         $offer->load(['user', 'serviceRequest']);
         Broadcast::event(new OfferCreated($offer))->toOthers();
 
+        if ($offer->serviceRequest->user) {
+            $offer->serviceRequest->user->notify(new PushNotification(
+                type: 'offer_created',
+                title: 'Nueva oferta recibida',
+                body: "{$offer->user->name} envió una oferta para \"{$offer->serviceRequest->title}\"",
+                data: ['service_request_id' => $offer->service_request_id, 'offer_id' => $offer->id],
+                actionUrl: "/servicios/{$offer->service_request_id}",
+            ));
+        }
+
         return $offer;
     }
 
@@ -52,6 +63,32 @@ class OfferService
 
         // Emitir evento en tiempo real
         Broadcast::event(new OfferAccepted($offer, $rejectedIds))->toOthers();
+
+        if ($offer->user) {
+            $offer->user->notify(new PushNotification(
+                type: 'offer_accepted',
+                title: 'Oferta aceptada',
+                body: "Tu oferta para \"{$offer->serviceRequest->title}\" fue aceptada",
+                data: ['service_request_id' => $offer->service_request_id, 'offer_id' => $offer->id],
+                actionUrl: "/servicios/{$offer->service_request_id}",
+            ));
+        }
+
+        // Rejected
+        if (!empty($rejectedIds)) {
+            $rejectedOffers = Offer::with('user')->whereIn('id', $rejectedIds)->get();
+            foreach ($rejectedOffers as $rejected) {
+                if ($rejected->user) {
+                    $rejected->user->notify(new PushNotification(
+                        type: 'offer_rejected',
+                        title: 'Oferta rechazada',
+                        body: "Tu oferta para \"{$offer->serviceRequest->title}\" no fue seleccionada",
+                        data: ['service_request_id' => $offer->service_request_id],
+                        actionUrl: "/servicios/{$offer->service_request_id}",
+                    ));
+                }
+            }
+        }
 
         return $offer->fresh();
     }

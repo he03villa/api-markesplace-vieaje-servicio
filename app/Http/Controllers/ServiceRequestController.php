@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\MyServicesRequest;
+use App\Notifications\PushNotification;
 use App\Services\PublicationService;
 use App\Services\ServiceRequestService;
 use App\Traits\ApiResponseTrait;
@@ -235,9 +236,44 @@ class ServiceRequestController extends Controller
             ]);
 
             $serviceRequest->transitionTo($validated['status'], $request->user());
+            $sr = $serviceRequest->fresh();
+
+            $status = $sr->status;
+            $title = $sr->title;
+
+            if ($status === 'cancelled') {
+                if ($sr->worker) {
+                    $sr->worker->notify(new PushNotification(
+                        type: 'service_cancelled',
+                        title: 'Servicio cancelado',
+                        body: "El servicio \"{$title}\" fue cancelado",
+                        data: ['service_request_id' => $sr->id],
+                        actionUrl: "/servicios/{$sr->id}",
+                    ));
+                }
+                if ($sr->user && $sr->user_id !== $request->user()->id) {
+                    $sr->user->notify(new PushNotification(
+                        type: 'service_cancelled',
+                        title: 'Servicio cancelado',
+                        body: "El servicio \"{$title}\" fue cancelado",
+                        data: ['service_request_id' => $sr->id],
+                        actionUrl: "/servicios/{$sr->id}",
+                    ));
+                }
+            }
+
+            if ($status === 'disputed' && $sr->worker) {
+                $sr->worker->notify(new PushNotification(
+                    type: 'service_disputed',
+                    title: 'Servicio en disputa',
+                    body: "Se abrió una disputa para \"{$title}\"",
+                    data: ['service_request_id' => $sr->id],
+                    actionUrl: "/servicios/{$sr->id}",
+                ));
+            }
 
             return $this->successResponse(
-                $serviceRequest->fresh(),
+                $sr,
                 'Estado actualizado exitosamente'
             );
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

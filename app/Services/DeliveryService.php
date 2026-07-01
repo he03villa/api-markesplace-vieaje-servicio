@@ -6,6 +6,7 @@ use App\Exceptions\UnauthorizedActionException;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestDelivery;
 use App\Models\User;
+use App\Notifications\PushNotification;
 use App\Utils\ImageUploader;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -55,6 +56,16 @@ class DeliveryService
 
         $sr->update(['status' => 'delivered', 'delivered_at' => now()]);
 
+        if ($sr->user) {
+            $sr->user->notify(new PushNotification(
+                type: 'delivery_submitted',
+                title: 'Entrega recibida',
+                body: "{$worker->name} entregó \"{$sr->title}\", revisa los detalles",
+                data: ['service_request_id' => $sr->id, 'delivery_id' => $delivery->id],
+                actionUrl: "/servicios/{$sr->id}/entrega",
+            ));
+        }
+
         return $delivery->load(['worker', 'serviceRequest']);
     }
 
@@ -68,6 +79,16 @@ class DeliveryService
         $sr->update(['status' => 'completed', 'completed_at' => now()]);
         $delivery->worker?->completeJob();
 
+        if ($delivery->worker) {
+            $delivery->worker->notify(new PushNotification(
+                type: 'delivery_approved',
+                title: 'Entrega aprobada',
+                body: "El cliente aprobó la entrega de \"{$sr->title}\"",
+                data: ['service_request_id' => $sr->id, 'delivery_id' => $delivery->id],
+                actionUrl: "/servicios/{$sr->id}/entrega",
+            ));
+        }
+
         return $delivery->fresh();
     }
 
@@ -78,6 +99,17 @@ class DeliveryService
         if (!$sr->isDelivered()) throw new \InvalidArgumentException('La solicitud no esta entregada');
 
         $delivery->reject($client->id, $reason);
+
+        if ($delivery->worker) {
+            $delivery->worker->notify(new PushNotification(
+                type: 'delivery_rejected',
+                title: 'Entrega rechazada',
+                body: "El cliente rechazó la entrega de \"{$sr->title}\": {$reason}",
+                data: ['service_request_id' => $sr->id, 'delivery_id' => $delivery->id],
+                actionUrl: "/servicios/{$sr->id}/entrega",
+            ));
+        }
+
         return $delivery->fresh();
     }
 
@@ -89,6 +121,16 @@ class DeliveryService
 
         $delivery->requestRevision($client->id, $feedback);
         $sr->update(['status' => 'in_progress']);
+
+        if ($delivery->worker) {
+            $delivery->worker->notify(new PushNotification(
+                type: 'delivery_needs_revision',
+                title: 'Entrega necesita cambios',
+                body: "El cliente solicitó cambios en \"{$sr->title}\": {$feedback}",
+                data: ['service_request_id' => $sr->id, 'delivery_id' => $delivery->id],
+                actionUrl: "/servicios/{$sr->id}/entrega",
+            ));
+        }
 
         return $delivery->fresh();
     }
