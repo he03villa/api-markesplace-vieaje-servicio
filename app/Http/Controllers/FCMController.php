@@ -7,6 +7,7 @@ use App\Http\Requests\SubscribeTopicRequest;
 use App\Http\Requests\UnsubscribeTopicRequest;
 use App\Models\DeviceToken;
 use App\Models\User;
+use App\Notifications\PushNotification;
 use App\Services\FCMService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -443,19 +444,18 @@ class FCMController extends Controller
                 'body' => 'required|string',
             ]);
 
-            $tokens = DeviceToken::where('user_id', $user->id)->pluck('device_token')->toArray();
-
-            if (empty($tokens)) {
+            if (!$user->deviceTokens()->exists()) {
                 return $this->errorResponse("El usuario {$user->id} no tiene tokens registrados");
             }
 
-            $result = $this->fcmService->sendToMultipleTokens($tokens, [
-                'title' => $request->title,
-                'body' => $request->body,
-                'data' => $request->data ?? [],
-            ]);
+            $user->notify(new PushNotification(
+                type: 'test',
+                title: $request->title,
+                body: $request->body,
+                data: $request->data ?? [],
+            ));
 
-            return $this->successResponse($result, 'Notificación enviada');
+            return $this->successResponse(null, 'Notificación enviada');
         } catch (\Exception $e) {
             Log::error('Error sending test notification', [
                 'error' => $e->getMessage(),

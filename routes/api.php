@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\FCMController;
 use App\Http\Controllers\MyAssignmentsController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicationsController;
@@ -92,6 +93,12 @@ Route::middleware('auth:api')->group(function () {
 
     // FCM Test Notification
     Route::post('/auth/notifications/test/{user}', [FCMController::class, 'testNotification']);
+
+    // Notificaciones en-app
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 });
 
 require __DIR__ . '/api_deliveries.php';
