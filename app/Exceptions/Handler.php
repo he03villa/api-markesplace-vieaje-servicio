@@ -9,6 +9,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Auth\AuthenticationException;
 use App\Exceptions\BusinessLogicException;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -72,6 +73,13 @@ class Handler extends ExceptionHandler
                 'success' => false,
                 'message' => $exception->getMessage(),
             ], 400);
+        }
+
+        if ($exception instanceof JWTException) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token inválido o expirado',
+            ], 401);
         }
 
         if ($exception instanceof \Illuminate\Database\QueryException) {

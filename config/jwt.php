@@ -117,7 +117,7 @@ return [
     |
     */
 
-    'refresh_iat' => env('JWT_REFRESH_IAT', false),
+    'refresh_iat' => env('JWT_REFRESH_IAT', true),
     'refresh_ttl' => (int) env('JWT_REFRESH_TTL', 20160),
 
     /*
@@ -233,7 +233,7 @@ return [
     |
     */
 
-    'blacklist_grace_period' => (int) env('JWT_BLACKLIST_GRACE_PERIOD', 0),
+    'blacklist_grace_period' => (int) env('JWT_BLACKLIST_GRACE_PERIOD', 60),
 
     /*
     |--------------------------------------------------------------------------

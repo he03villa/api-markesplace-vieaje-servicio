@@ -47,7 +47,9 @@ class UserService
 
     public function refresh()
     {
-        return $this->respondWithToken(auth('api')->refresh());
+        $newToken = auth('api')->refresh();
+        auth('api')->setToken($newToken);
+        return $this->respondWithToken($newToken);
     }
 
     protected function respondWithToken($token)

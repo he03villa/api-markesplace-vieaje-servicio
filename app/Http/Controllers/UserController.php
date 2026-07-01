@@ -13,6 +13,10 @@ use App\Services\UserService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenBlacklistedException;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenInvalidException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -36,7 +40,9 @@ class UserController extends Controller
             new OA\Response(response: 200, description: 'Datos del usuario autenticado',
                 content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
             ),
-            new OA\Response(response: 401, description: 'No autenticado'),
+            new OA\Response(response: 401, description: 'No autenticado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function me()
@@ -53,8 +59,12 @@ class UserController extends Controller
         summary: 'Cerrar sesión',
         security: [['jwt' => []]],
         responses: [
-            new OA\Response(response: 200, description: 'Sesión cerrada exitosamente'),
-            new OA\Response(response: 401, description: 'No autenticado'),
+            new OA\Response(response: 200, description: 'Sesión cerrada exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 401, description: 'No autenticado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function logout()
@@ -66,17 +76,32 @@ class UserController extends Controller
         path: '/api/auth/refresh',
         tags: ['Auth'],
         summary: 'Refrescar token JWT',
-        security: [['jwt' => []]],
         responses: [
             new OA\Response(response: 200, description: 'Token renovado',
-                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+                content: new OA\JsonContent(properties: [
+                    new OA\Property(property: 'success', type: 'boolean', example: true),
+                    new OA\Property(property: 'message', type: 'string', example: 'Operación exitosa'),
+                    new OA\Property(property: 'data', ref: '#/components/schemas/TokenResponse'),
+                ])
             ),
-            new OA\Response(response: 401, description: 'Token inválido o expirado'),
+            new OA\Response(response: 401, description: 'Token inválido o expirado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function refresh()
     {
-        return $this->successResponse($this->userService->refresh());
+        try {
+            return $this->successResponse($this->userService->refresh());
+        } catch (TokenBlacklistedException $e) {
+            return $this->unauthorizedResponse('Token ya utilizado, inicie sesión nuevamente');
+        } catch (TokenExpiredException $e) {
+            return $this->unauthorizedResponse('Token expirado, inicie sesión nuevamente');
+        } catch (TokenInvalidException $e) {
+            return $this->unauthorizedResponse('Token inválido');
+        } catch (JWTException $e) {
+            return $this->unauthorizedResponse('Token no proporcionado o inválido');
+        }
     }
 
     #[OA\Post(
@@ -88,10 +113,11 @@ class UserController extends Controller
             content: new OA\JsonContent(ref: '#/components/schemas/RegisterRequest')
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Usuario registrado exitosamente'),
-            new OA\Response(response: 422, description: 'Error de validación',
-                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            new OA\Response(response: 200, description: 'Usuario registrado exitosamente',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
             ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')),
         ]
     )]
     public function register(Request $request)
@@ -119,9 +145,19 @@ class UserController extends Controller
             content: new OA\JsonContent(ref: '#/components/schemas/LoginRequest')
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Login exitoso, devuelve token JWT'),
-            new OA\Response(response: 401, description: 'Credenciales inválidas'),
-            new OA\Response(response: 422, description: 'Error de validación'),
+            new OA\Response(response: 200, description: 'Login exitoso, devuelve token JWT',
+                content: new OA\JsonContent(properties: [
+                    new OA\Property(property: 'success', type: 'boolean', example: true),
+                    new OA\Property(property: 'message', type: 'string', example: 'Operación exitosa'),
+                    new OA\Property(property: 'data', ref: '#/components/schemas/TokenResponse'),
+                ])
+            ),
+            new OA\Response(response: 401, description: 'Credenciales inválidas',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
         ]
     )]
     public function login(Request $request)
@@ -155,8 +191,12 @@ class UserController extends Controller
             ])
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Contraseña actualizada'),
-            new OA\Response(response: 422, description: 'Error de validación'),
+            new OA\Response(response: 200, description: 'Contraseña actualizada',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
         ]
     )]
     public function changePassword(ChangePasswordRequest $request): JsonResponse
@@ -195,8 +235,12 @@ class UserController extends Controller
         summary: 'Enviar correo de verificación',
         security: [['jwt' => []]],
         responses: [
-            new OA\Response(response: 200, description: 'Correo enviado'),
-            new OA\Response(response: 422, description: 'Error al enviar'),
+            new OA\Response(response: 200, description: 'Correo enviado',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error al enviar',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function sendVerificationEmail(): JsonResponse
@@ -249,7 +293,9 @@ class UserController extends Controller
             ])
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Preferencia actualizada'),
+            new OA\Response(response: 200, description: 'Preferencia actualizada',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
         ]
     )]
     public function updateHasNotification(UpdateHasNotificationRequest $request): JsonResponse
@@ -277,8 +323,12 @@ class UserController extends Controller
             ])
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Cuenta eliminada'),
-            new OA\Response(response: 422, description: 'Contraseña incorrecta'),
+            new OA\Response(response: 200, description: 'Cuenta eliminada',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Contraseña incorrecta',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function deleteAccount(deleteAccountRequest $request): JsonResponse
@@ -305,8 +355,12 @@ class UserController extends Controller
             ])
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Código enviado al correo'),
-            new OA\Response(response: 422, description: 'Email no encontrado'),
+            new OA\Response(response: 200, description: 'Código enviado al correo',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Email no encontrado',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
@@ -333,8 +387,12 @@ class UserController extends Controller
             ])
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Código válido'),
-            new OA\Response(response: 422, description: 'Código inválido'),
+            new OA\Response(response: 200, description: 'Código válido',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Código inválido',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
@@ -363,8 +421,12 @@ class UserController extends Controller
             ])
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Contraseña actualizada'),
-            new OA\Response(response: 422, description: 'Error de validación'),
+            new OA\Response(response: 200, description: 'Contraseña actualizada',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')
+            ),
+            new OA\Response(response: 422, description: 'Error de validación',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
         ]
     )]
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
