@@ -97,7 +97,7 @@ class UserService
 
         $signedUrlForEmail = str_replace('http://localhost', config('app.url'), $signedUrl);
 
-        Mail::to($user->email)->send(new VerifyEmailMail($signedUrlForEmail));
+        Mail::to($user->email)->queue(new VerifyEmailMail($signedUrlForEmail));
     }
 
     public function verifyEmail(int $userId): void
@@ -173,7 +173,7 @@ class UserService
             'updated_at' => now(),
         ]);
 
-        Mail::to($email)->send(new ResetPasswordOtpMail($code));
+        Mail::to($email)->queue(new ResetPasswordOtpMail($code));
     }
 
     public function verifyOtp(string $email, string $code): void
