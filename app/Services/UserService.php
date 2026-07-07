@@ -87,17 +87,13 @@ class UserService
             throw new \InvalidArgumentException('El correo ya está verificado');
         }
 
-        URL::forceRootUrl('http://localhost');
-        // URL firmada que expira en 60 minutos
         $signedUrl = URL::temporarySignedRoute(
             'email.verify',
             now()->addMinutes(60),
             ['id' => $user->id]
         );
 
-        $signedUrlForEmail = str_replace('http://localhost', config('app.url'), $signedUrl);
-
-        Mail::to($user->email)->queue(new VerifyEmailMail($signedUrlForEmail));
+        Mail::to($user->email)->queue(new VerifyEmailMail($signedUrl));
     }
 
     public function verifyEmail(int $userId): void
