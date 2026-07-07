@@ -18,10 +18,8 @@ return new class extends Migration
             $table->foreignId('user_b_id')->constrained('users')->cascadeOnDelete();
  
             // Desnormalización para el inbox — se actualiza en cada mensaje
-            $table->foreignId('last_message_id')
-                  ->nullable()
-                  ->constrained('messages')
-                  ->nullOnDelete();
+            // La FK se agrega en create_messages_table (después de que messages exista)
+            $table->unsignedBigInteger('last_message_id')->nullable();
  
             $table->timestamp('last_message_at')->nullable()->index();
  

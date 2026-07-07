@@ -29,6 +29,13 @@ return new class extends Migration
 
             $table->index(['conversation_id', 'created_at']);
         });
+
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->foreign('last_message_id')
+                  ->references('id')
+                  ->on('messages')
+                  ->nullOnDelete();
+        });
     }
 
     /**
@@ -36,6 +43,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->dropForeign(['last_message_id']);
+        });
+
         Schema::dropIfExists('messages');
     }
 };
