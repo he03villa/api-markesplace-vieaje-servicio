@@ -258,7 +258,15 @@ class UserController extends Controller
 
     public function verifyEmail(Request $request, int $id): \Illuminate\Http\RedirectResponse
     {
-        if (!$request->hasValidSignature()) {
+        $queryParams = $request->query();
+        $signature = $queryParams['signature'] ?? null;
+        unset($queryParams['signature']);
+
+        $url = config('app.url') . '/api/email/verify/' . $id . '?' . http_build_query($queryParams);
+
+        $expected = hash_hmac('sha256', $url, config('app.key'));
+
+        if (!hash_equals($expected, $signature) || now()->getTimestamp() > (int) ($queryParams['expires'] ?? 0)) {
             return redirect(env('APP_DEEP_LINK') . '?status=invalid');
         }
 
