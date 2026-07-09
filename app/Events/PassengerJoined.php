@@ -22,7 +22,8 @@ class PassengerJoined implements ShouldBroadcastNow
      */
     public function __construct(
         public RideRequest $ride,
-        public User $passenger
+        public User $passenger,
+        public int $seats = 1
     ) {
         //
     }
@@ -42,5 +43,19 @@ class PassengerJoined implements ShouldBroadcastNow
     public function broadcastAs(): string
     {
         return 'PassengerJoined';
+    }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'ride_id' => $this->ride->id,
+            'passenger' => [
+                'id' => $this->passenger->id,
+                'name' => $this->passenger->name,
+                'avatar_url' => $this->passenger->avatar_url,
+            ],
+            'seats' => $this->seats,
+            'timestamp' => now()->toIso8601String(),
+        ];
     }
 }

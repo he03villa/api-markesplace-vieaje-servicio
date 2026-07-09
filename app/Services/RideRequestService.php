@@ -111,7 +111,7 @@ class RideRequestService
 
         $ride->increment('passenger_requests_count');
 
-        broadcast(new PassengerJoined($ride, $user))->toOthers();
+        broadcast(new PassengerJoined($ride, $user, $seats))->toOthers();
 
         if ($ride->driver) {
             $seats = $data['seats'] ?? 1;
